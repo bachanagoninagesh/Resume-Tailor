@@ -10,7 +10,10 @@ class Settings:
     anthropic_model: str = "claude-sonnet-4-20250514"
     request_timeout_seconds: int = 25
 
-    # Optional email delivery
+    # Brevo HTTP API (works on Render — no SMTP port needed)
+    brevo_api_key: str = ""
+
+    # SMTP fallback (works locally)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -25,6 +28,7 @@ def get_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
         request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "25")),
+        brevo_api_key=os.getenv("BREVO_API_KEY", ""),
         smtp_host=os.getenv("SMTP_HOST", ""),
         smtp_port=int(os.getenv("SMTP_PORT", "587")),
         smtp_username=os.getenv("SMTP_USERNAME", ""),
