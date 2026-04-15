@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import mimetypes
 import smtplib
-import socket
+import ssl
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
@@ -29,11 +29,44 @@ def send_results_email(
     body: str,
     attachments: Iterable[Path],
 ) -> None:
-    """Send an email with one or more PDF files attached directly (no zip)."""
+    """Send an email with one or more PDF files attached directly (no zip).
+
+    Tries two methods in order:
+      1. SMTP_SSL on port 465  — implicit TLS, most reliable on cloud hosts.
+      2. SMTP + STARTTLS on configured port — standard fallback.
+    """
     missing = [field for field in REQUIRED_SMTP_FIELDS if not getattr(settings, field)]
     if missing:
         raise EmailConfigurationError("Missing email settings: " + ", ".join(missing))
 
+    message = _build_message(settings, to_address, subject, body, attachments)
+    smtp_timeout = max(settings.request_timeout_seconds, 60)
+
+    # Try port 465 (SMTP_SSL) first — bypasses STARTTLS negotiation issues
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(settings.smtp_host, 465, timeout=smtp_timeout, context=context) as server:
+            server.login(settings.smtp_username, settings.smtp_password)
+            server.send_message(message)
+        return
+    except Exception:
+        pass  # fall through to STARTTLS
+
+    # Fallback: SMTP + STARTTLS on configured port (587 by default)
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=smtp_timeout) as server:
+        if settings.smtp_use_starttls:
+            server.starttls()
+        server.login(settings.smtp_username, settings.smtp_password)
+        server.send_message(message)
+
+
+def _build_message(
+    settings: Settings,
+    to_address: str,
+    subject: str,
+    body: str,
+    attachments: Iterable[Path],
+) -> EmailMessage:
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = settings.email_from
@@ -50,20 +83,4 @@ def send_results_email(
             data, maintype=maintype, subtype=subtype, filename=attachment.name
         )
 
-    # Resolve to IPv4 explicitly — avoids [Errno 101] Network is unreachable
-    # on cloud hosts (e.g. Render) where IPv6 is not routed.
-    host = settings.smtp_host
-    try:
-        host = socket.getaddrinfo(host, settings.smtp_port, socket.AF_INET)[0][4][0]
-    except (socket.gaierror, IndexError):
-        pass  # fall back to original hostname if resolution fails
-
-    # Use 60s timeout for SMTP — cloud platforms can be slow on initial
-    # TCP + TLS handshake; 25s (the Anthropic API timeout) is too short.
-    smtp_timeout = max(settings.request_timeout_seconds, 60)
-
-    with smtplib.SMTP(host, settings.smtp_port, timeout=smtp_timeout) as server:
-        if settings.smtp_use_starttls:
-            server.starttls()
-        server.login(settings.smtp_username, settings.smtp_password)
-        server.send_message(message)
+    return message
