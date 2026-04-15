@@ -58,9 +58,11 @@ def send_results_email(
     except (socket.gaierror, IndexError):
         pass  # fall back to original hostname if resolution fails
 
-    with smtplib.SMTP(
-        host, settings.smtp_port, timeout=settings.request_timeout_seconds
-    ) as server:
+    # Use 60s timeout for SMTP — cloud platforms can be slow on initial
+    # TCP + TLS handshake; 25s (the Anthropic API timeout) is too short.
+    smtp_timeout = max(settings.request_timeout_seconds, 60)
+
+    with smtplib.SMTP(host, settings.smtp_port, timeout=smtp_timeout) as server:
         if settings.smtp_use_starttls:
             server.starttls()
         server.login(settings.smtp_username, settings.smtp_password)
