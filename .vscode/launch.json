@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Resume Tailor — Run All Jobs",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Resume Tailor — First Job Only (test)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["--max-jobs", "1"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    }
+  ]
+}

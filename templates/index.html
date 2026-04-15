@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Tailor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #6c63ff;
+      --accent-hover: #8079ff;
+      --text: #e8eaf0;
+      --muted: #7b7e92;
+      --success: #3ddc84;
+      --error: #ff5c6a;
+      --warn: #ffb347;
+      --log-bg: #0d0f18;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      background: var(--log-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea::placeholder {
+      color: #3a3d52;
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+      padding: 12px 28px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Status section */
+    #status-section {
+      display: none;
+      margin-top: 28px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 14px;
+      border: 1px solid transparent;
+    }
+
+    .status-bar.running  { background: rgba(108,99,255,0.12); border-color: rgba(108,99,255,0.3); color: #a78bfa; }
+    .status-bar.done     { background: rgba(61,220,132,0.1);  border-color: rgba(61,220,132,0.3); color: var(--success); }
+    .status-bar.error    { background: rgba(255,92,106,0.1);  border-color: rgba(255,92,106,0.3); color: var(--error); }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .running .dot  { background: #a78bfa; animation: pulse 1.2s ease-in-out infinite; }
+    .done    .dot  { background: var(--success); }
+    .error   .dot  { background: var(--error); }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .log-box {
+      background: var(--log-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      color: #a0a3b5;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log-box .line-success { color: var(--success); }
+    .log-box .line-error   { color: var(--error); }
+    .log-box .line-warn    { color: var(--warn); }
+    .log-box .line-info    { color: #6c63ff; }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Resume Tailor</h1>
+  <p>Paste job links below, click Generate — tailored PDFs land in your inbox.</p>
+</header>
+
+<div class="card">
+  <form id="gen-form">
+    <label for="links">Job Links</label>
+    <textarea
+      id="links"
+      name="links"
+      placeholder="https://company.com/jobs/123&#10;https://another.com/careers/456&#10;https://..."
+      spellcheck="false"
+    ></textarea>
+    <p class="hint">One URL per line. Blank lines are ignored.</p>
+
+    <button class="btn" type="submit" id="gen-btn">
+      <span class="spinner" id="spinner"></span>
+      <span id="btn-label">Generate Resumes</span>
+    </button>
+  </form>
+
+  <div id="status-section">
+    <div class="status-bar" id="status-bar">
+      <span class="dot"></span>
+      <span id="status-text">Processing...</span>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+</div>
+
+<footer>Powered by Claude &amp; ReportLab &bull; Results sent via email</footer>
+
+<script>
+  const form       = document.getElementById('gen-form');
+  const btn        = document.getElementById('gen-btn');
+  const spinner    = document.getElementById('spinner');
+  const btnLabel   = document.getElementById('btn-label');
+  const statusSec  = document.getElementById('status-section');
+  const statusBar  = document.getElementById('status-bar');
+  const statusText = document.getElementById('status-text');
+  const logBox     = document.getElementById('log-box');
+
+  let pollTimer = null;
+  let renderedLines = 0;
+
+  function setLoading(on) {
+    btn.disabled = on;
+    spinner.style.display = on ? 'block' : 'none';
+    btnLabel.textContent = on ? 'Generating...' : 'Generate Resumes';
+  }
+
+  function classifyLine(line) {
+    const l = line.toLowerCase();
+    if (l.includes('error') || l.includes('failed') || l.includes('skipped'))  return 'line-error';
+    if (l.includes('done') || l.includes('emailed') || l.includes('success'))  return 'line-success';
+    if (l.includes('warning') || l.includes('warn'))                            return 'line-warn';
+    if (l.startsWith('[') || l.includes('->') || l.includes('processing'))      return 'line-info';
+    return '';
+  }
+
+  function appendLines(lines) {
+    lines.forEach(line => {
+      const cls = classifyLine(line);
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = line + '\n';
+      logBox.appendChild(span);
+    });
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function setStatus(state) {
+    statusBar.className = 'status-bar ' + state;
+    if (state === 'running') statusText.textContent = 'Generating resumes — this may take a minute...';
+    if (state === 'done')    statusText.textContent = 'Done! Check your inbox.';
+    if (state === 'error')   statusText.textContent = 'Something went wrong. See log below.';
+  }
+
+  async function poll(jobId) {
+    try {
+      const res  = await fetch(`/status/${jobId}`);
+      const data = await res.json();
+
+      // Append only new lines
+      const newLines = data.log.slice(renderedLines);
+      if (newLines.length) {
+        appendLines(newLines);
+        renderedLines += newLines.length;
+      }
+
+      setStatus(data.status);
+
+      if (!data.done) {
+        pollTimer = setTimeout(() => poll(jobId), 2000);
+      } else {
+        setLoading(false);
+      }
+    } catch {
+      clearTimeout(pollTimer);
+      setLoading(false);
+    }
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const links = document.getElementById('links').value.trim();
+    if (!links) return;
+
+    // Reset UI
+    clearTimeout(pollTimer);
+    logBox.innerHTML = '';
+    renderedLines = 0;
+    setLoading(true);
+    statusSec.style.display = 'block';
+    setStatus('running');
+
+    try {
+      const res  = await fetch('/generate', { method: 'POST', body: new FormData(form) });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        appendLines([data.error || 'Unknown error']);
+        setStatus('error');
+        setLoading(false);
+        return;
+      }
+
+      poll(data.job_id);
+    } catch (err) {
+      appendLines(['Network error: ' + err.message]);
+      setStatus('error');
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>
