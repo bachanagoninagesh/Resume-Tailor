@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import mimetypes
 import smtplib
+import socket
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
@@ -49,8 +50,16 @@ def send_results_email(
             data, maintype=maintype, subtype=subtype, filename=attachment.name
         )
 
+    # Resolve to IPv4 explicitly — avoids [Errno 101] Network is unreachable
+    # on cloud hosts (e.g. Render) where IPv6 is not routed.
+    host = settings.smtp_host
+    try:
+        host = socket.getaddrinfo(host, settings.smtp_port, socket.AF_INET)[0][4][0]
+    except (socket.gaierror, IndexError):
+        pass  # fall back to original hostname if resolution fails
+
     with smtplib.SMTP(
-        settings.smtp_host, settings.smtp_port, timeout=settings.request_timeout_seconds
+        host, settings.smtp_port, timeout=settings.request_timeout_seconds
     ) as server:
         if settings.smtp_use_starttls:
             server.starttls()
