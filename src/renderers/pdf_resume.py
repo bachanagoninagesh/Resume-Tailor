@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -32,6 +33,12 @@ from reportlab.platypus import (
 )
 
 from src.models import TailoredResume
+
+
+def _x(s: str) -> str:
+    """Escape XML special characters in user text before embedding in Paragraph markup."""
+    return _xml_escape(str(s or ""))
+
 
 # ── Page geometry ──────────────────────────────────────────────────────────────
 PAGE_W, PAGE_H = letter          # 612 × 792 pt
@@ -53,7 +60,7 @@ BULLET_CLR  = colors.HexColor("#2C68A8")   # matching blue bullets
 RULE_CLR    = colors.HexColor("#2C68A8")   # same as blue
 
 # ── Font-size ladder ───────────────────────────────────────────────────────────
-_FONT_SIZES = [11.5, 11.2, 10.9, 10.6, 10.3, 10.0, 9.7, 9.4, 9.1, 8.8, 8.5, 8.2, 7.9, 7.6]
+_FONT_SIZES = [10.5, 10.2, 9.9, 9.6, 9.3, 9.0, 8.7, 8.4, 8.1, 7.8, 7.5, 7.2]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -81,7 +88,7 @@ def _build(buf: BytesIO, r: TailoredResume, fs: float) -> int:
     st = []
 
     # ── NAME — ALL CAPS, large, pure black, centered ──────────────────────────
-    name = (r.contact.name or "Candidate").upper()
+    name = _x((r.contact.name or "Candidate").upper())
     st.append(Paragraph(name, S["name"]))
 
     # ── Small gap between name and contact ────────────────────────────────────
@@ -105,7 +112,7 @@ def _build(buf: BytesIO, r: TailoredResume, fs: float) -> int:
         st.append(Spacer(1, 0.070 * inch))   # extra gap after header rule
         st.append(Paragraph("PROFESSIONAL SUMMARY", S["section"]))
         st.extend(_sec_rule())
-        st.append(Paragraph(r.summary, S["body"]))
+        st.append(Paragraph(_x(r.summary), S["body"]))
         st.append(Spacer(1, 0.014 * inch))
 
     # ── PROFESSIONAL EXPERIENCE ───────────────────────────────────────────────
@@ -137,8 +144,11 @@ def _build(buf: BytesIO, r: TailoredResume, fs: float) -> int:
         st.extend(_sec_gap())
         st.append(Paragraph("EDUCATION", S["section"]))
         st.extend(_sec_rule())
-        for edu in r.education[:2]:
+        edu_list = r.education[:2]
+        for i, edu in enumerate(edu_list):
             st.extend(_render_edu(edu, S))
+            if i < len(edu_list) - 1:
+                st.append(Spacer(1, 0.010 * inch))  # gap between degree entries
         st.append(Spacer(1, 0.010 * inch))
 
     doc = _Doc(
@@ -174,8 +184,8 @@ def _render_exp(exp, S: dict) -> list:
 
     # Title (bold left) ←→ Dates (italic right)
     elems.append(_lr_table(
-        f"<b>{exp.title or ''}</b>",
-        f"<i>{exp.dates or ''}</i>",
+        f"<b>{_x(exp.title or '')}</b>",
+        f"<i>{_x(exp.dates or '')}</i>",
         S["row_left"], S["row_right"],
         left_frac=0.72,
     ))
@@ -183,22 +193,22 @@ def _render_exp(exp, S: dict) -> list:
     # Company | Location (italic left)
     co_loc = _join([exp.company, exp.location], " | ")
     if co_loc:
-        elems.append(Paragraph(f"<i>{co_loc}</i>", S["company_line"]))
+        elems.append(Paragraph(f"<i>{_x(co_loc)}</i>", S["company_line"]))
 
     # Top-level bullets
     for b in exp.bullets:
         t = b.strip().lstrip("-•").strip()
         if t:
-            elems.append(Paragraph(f"\u2022  {t}", S["bullet"]))
+            elems.append(Paragraph(f"\u2022  {_x(t)}", S["bullet"]))
 
     # Project subheadings + bullets
     for sec in exp.sections:
         if sec.name:
-            elems.append(Paragraph(sec.name, S["subhead"]))
+            elems.append(Paragraph(_x(sec.name), S["subhead"]))
         for b in sec.bullets:
             t = b.strip().lstrip("-•").strip()
             if t:
-                elems.append(Paragraph(f"\u2022  {t}", S["bullet"]))
+                elems.append(Paragraph(f"\u2022  {_x(t)}", S["bullet"]))
 
     elems.append(Spacer(1, 0.016 * inch))
     return elems
@@ -234,8 +244,8 @@ def _render_skills(skills: list, S: dict, fs: float) -> list:
 
         def _p(cat, val, _cs=cs):
             if cat:
-                return Paragraph(f"<b>{cat}:</b> {val}", _cs)
-            return Paragraph(val, _cs)
+                return Paragraph(f"<b>{_x(cat)}:</b> {_x(val)}", _cs)
+            return Paragraph(_x(val), _cs)
 
         inner = Table([[_p(lc, lv), _p(rc, rv)]], colWidths=[col_w, col_w])
         inner.setStyle(TableStyle([
@@ -261,19 +271,28 @@ def _render_certs(certs: list, S: dict) -> list:
     clean = [c.strip() for c in certs if c.strip()]
     if not clean:
         return []
-    return [Paragraph("  \u2022  ".join(clean), S["body"])]
+    return [Paragraph("  \u2022  ".join(_x(c) for c in clean), S["body"])]
 
 
 def _render_edu(edu, S: dict) -> list:
-    """Strict 1 line per degree — compact font prevents wrapping."""
-    left  = _join([edu.degree, edu.school], " | ")
-    right = _join([edu.details, edu.dates], " | ")
-    return [_lr_table(
-        f"<b>{left}</b>",
-        f"<i>{right}</i>",
+    """3-line layout per degree: title row / detail row / coursework row."""
+    # Line 1: Degree | School  ←→  Dates
+    elems = [_lr_table(
+        f"<b>{_x(_join([edu.degree, edu.school], ' | '))}</b>",
+        f"<i>{_x(edu.dates)}</i>",
         S["edu_left"], S["edu_right"],
-        left_frac=0.60,
+        left_frac=0.65,
     )]
+    # Line 2: Location  |  GPA / details (italic)
+    detail_line = _join([edu.location, edu.details], "  |  ")
+    if detail_line:
+        elems.append(Paragraph(f"<i>{_x(detail_line)}</i>", S["edu_detail"]))
+    # Line 3: Relevant Coursework
+    cw = (edu.coursework or "").strip()
+    if cw:
+        elems.append(Paragraph(f"<i>Relevant Coursework: {_x(cw)}</i>", S["coursework"]))
+    elems.append(Spacer(1, 0.008 * inch))
+    return elems
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -319,9 +338,9 @@ def _contact_html(parts: list[str]) -> str:
     rendered = []
     for p in parts:
         if p.startswith(("http://", "https://", "www.")) or "@" in p:
-            rendered.append(f'<font color="{URL_CLR}">{p}</font>')
+            rendered.append(f'<font color="{URL_CLR}">{_x(p)}</font>')
         else:
-            rendered.append(p)
+            rendered.append(_x(p))
     return " | ".join(rendered)
 
 
@@ -441,6 +460,28 @@ def _styles(fs: float) -> dict:
             alignment=TA_LEFT,
             textColor=BLACK,
             spaceAfter=1.5,
+        ),
+        # ── Coursework line — small italic under degree ───────────────────────
+        "coursework": ParagraphStyle(
+            "coursework", parent=base,
+            fontName="Helvetica-Oblique",
+            fontSize=fs - 0.6,
+            leading=(fs - 0.6) * 1.22,
+            alignment=TA_LEFT,
+            textColor=BLACK,
+            leftIndent=CI,
+            spaceAfter=1,
+        ),
+        # ── Education detail line (location | GPA) ────────────────────────────
+        "edu_detail": ParagraphStyle(
+            "edu_detail", parent=base,
+            fontName="Helvetica-Oblique",
+            fontSize=fs - 0.4,
+            leading=(fs - 0.4) * 1.20,
+            alignment=TA_LEFT,
+            textColor=BLACK,
+            leftIndent=CI,
+            spaceAfter=1,
         ),
         # ── Education compact styles — prevents 3rd line ──────────────────────
         "edu_left": ParagraphStyle(

@@ -9,7 +9,8 @@ from src.data.profile_loader import ProfileLoadError, load_profile
 from src.emailer import EmailConfigurationError, send_results_email
 from src.extractors.job_parser import JobFetchError, JobSourceError, load_job_sources, parse_job_source
 from src.extractors.resume_parser import ResumeParseError, parse_resume_text, resolve_resume_path
-from src.llm.anthropic_client import ResumeGenerator
+from src.llm.anthropic_client import ResumeGenerator  # now uses OpenAI
+from src.postprocess.keyword_booster import boost_keywords
 from src.postprocess.resume_optimizer import optimize_resume
 from src.renderers.pdf_resume import render_resume_pdf
 from src.scoring.ats_keywords import overlap_score
@@ -63,6 +64,7 @@ def main() -> None:
             profile=profile,
         )
         tailored = optimize_resume(tailored, profile=profile)
+        tailored = boost_keywords(tailored, job.text, base_resume_text, profile)
 
         resume_text_for_score = "\n".join(filter(None, [
             tailored.target_title,
@@ -74,7 +76,7 @@ def main() -> None:
             " ".join(b for e in tailored.experience for b in e.bullets),
             " ".join(sec.name for e in tailored.experience for sec in e.sections if sec.name),
             " ".join(b for e in tailored.experience for s in e.sections for b in s.bullets),
-            " ".join(f"{e.degree} {e.school} {e.details}" for e in tailored.education),
+            " ".join(f"{e.degree} {e.school} {e.details} {e.coursework}" for e in tailored.education),
         ]))
         post_score, _ = overlap_score(resume_text_for_score, job.text)
 

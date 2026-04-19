@@ -1,4 +1,4 @@
-anthropic>=0.54.0
+openai>=1.30.0
 beautifulsoup4>=4.12.3
 flask>=3.0.0
 gunicorn>=22.0.0

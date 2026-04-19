@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Settings:
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
-    request_timeout_seconds: int = 25
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+    request_timeout_seconds: int = 120
 
     # Brevo HTTP API (works on Render — no SMTP port needed)
     brevo_api_key: str = ""
@@ -25,9 +25,9 @@ class Settings:
 
 def get_settings() -> Settings:
     return Settings(
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
-        request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "25")),
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+        request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "120")),
         brevo_api_key=os.getenv("BREVO_API_KEY", ""),
         smtp_host=os.getenv("SMTP_HOST", ""),
         smtp_port=int(os.getenv("SMTP_PORT", "587")),

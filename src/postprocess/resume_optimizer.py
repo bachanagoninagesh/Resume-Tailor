@@ -10,9 +10,10 @@ MAX_ATS_KEYWORDS = 30
 MAX_NOTES = 8
 
 MAX_EXPERIENCE_ROLES = 2
-MAX_BULLETS_PER_ROLE = 2
-MAX_SECTION_BULLETS = 5
+MAX_BULLETS_PER_ROLE = 5   # flat roles (e.g. Shopify intern) get 5 top-level bullets
+MAX_SECTION_BULLETS = 5    # sub-project sections get up to 5 bullets each
 MAX_BULLET_CHARS = 240
+MAX_COURSEWORK_CHARS = 240  # enough for 6-7 courses
 
 MAX_PROJECTS = 0
 MAX_PROJECT_BULLETS = 3
@@ -31,7 +32,7 @@ def optimize_resume(resume: TailoredResume, profile: ProfileOverrides | None = N
     _apply_profile(resume, profile)
 
     resume.target_title = _limit_text(_squash_whitespace(resume.target_title), 120)
-    resume.summary = _limit_text(_squash_whitespace(resume.summary), 800)
+    resume.summary = _limit_text(_squash_whitespace(resume.summary), 1000)
     resume.skills = _dedupe([_squash_whitespace(s) for s in resume.skills], limit=MAX_SKILLS)
     # Strip NCC / National Cadet Corps — not a professional certification
     _NCC_FILTER = re.compile(r"national cadet corps|\bncc\b", re.IGNORECASE)
@@ -49,7 +50,7 @@ def optimize_resume(resume: TailoredResume, profile: ProfileOverrides | None = N
         item.title = _limit_text(_squash_whitespace(item.title), 70)
         item.company = _limit_text(_squash_whitespace(item.company), 70)
         item.location = _limit_text(_squash_whitespace(item.location), 50)
-        item.dates = _limit_text(_squash_whitespace(item.dates), 35)
+        item.dates = _limit_text(_squash_whitespace(item.dates), 60)  # 60 allows "(concurrent with MS)"
         item.bullets = _trim_bullets(
             item.bullets, max_bullets=MAX_BULLETS_PER_ROLE, max_chars=MAX_BULLET_CHARS
         )
@@ -71,8 +72,9 @@ def optimize_resume(resume: TailoredResume, profile: ProfileOverrides | None = N
         item.school = _limit_text(_squash_whitespace(item.school), 70)
         item.degree = _limit_text(_squash_whitespace(item.degree), 80)
         item.location = _limit_text(_squash_whitespace(item.location), 50)
-        item.dates = _limit_text(_squash_whitespace(item.dates), 35)
+        item.dates = _limit_text(_squash_whitespace(item.dates), 60)
         item.details = _limit_text(_squash_whitespace(item.details), 80)
+        item.coursework = _limit_text(_squash_whitespace(item.coursework), MAX_COURSEWORK_CHARS)
 
     resume.experience = [
         item for item in resume.experience if item.title or item.company or item.bullets or item.sections

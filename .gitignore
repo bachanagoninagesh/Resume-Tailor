@@ -6,3 +6,6 @@ __pycache__/
 data/output/*.pdf
 data/output/*.json
 data/output/*.txt
+
+# Embedded portfolio repo — tracked separately
+Portifolio/

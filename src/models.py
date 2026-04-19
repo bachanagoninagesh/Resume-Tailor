@@ -39,6 +39,7 @@ class EducationItem(BaseModel):
     location: str = ""
     dates: str = ""
     details: str = ""
+    coursework: str = ""
 
 
 class TailoredResume(BaseModel):
